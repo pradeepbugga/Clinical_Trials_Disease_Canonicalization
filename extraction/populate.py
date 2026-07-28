@@ -91,12 +91,6 @@ def populate_jsonl(
     Populate the database from an OpenAI Batch results JSONL file.
     """
 
-    with Path(results_path).open(
-        "r",
-        encoding="utf-8",
-    ) as f:
-        batch_results = f.read()
-
-    records = parse_condition_results(batch_results)
+    records = parse_condition_results(results_path)
 
     return populate_records(cur, records)
