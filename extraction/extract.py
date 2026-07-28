@@ -1,12 +1,12 @@
-from typing import Any
-from models import Trial
+from typing import Any, Iterator
+from models.models import ExtractionInput
 from extraction.prompts import EXTRACTION_PROMPT
 from extraction.schema import EXTRACTION_SCHEMA
 
 DEFAULT_MODEL = "gpt-4.1-nano"
 
 
-def iter_trials(cur) -> Iterator[Trial]:
+def iter_trials(cur) -> Iterator[ExtractionInput]:
     """
     Yield Trial objects requiring condition extraction.
 
@@ -17,8 +17,9 @@ def iter_trials(cur) -> Iterator[Trial]:
 
     Yields
     ------
-    Trial
-        Trial objects to process.
+    ExtractionInput
+        An object containing trial information for extraction.
+        
     """
 
     cur.execute(
@@ -44,37 +45,39 @@ def iter_trials(cur) -> Iterator[Trial]:
 
         for nct_id, title, summary in rows:
 
-            yield Trial(
+            yield ExtractionInput(
                 nct_id=nct_id,
                 title=title,
                 summary=summary,
             )
 
 
-def _format_trial(trial: Trial) -> str:
+def _format_trial(extraction_input: ExtractionInput) -> str:
     """Convert a clinical trial into text for disease extraction."""
 
     parts = []
 
-    if trial.summary:
-        parts.append(trial.summary.strip())
+    if extraction_input.title:
+        parts.append(f"Title: {extraction_input.title.strip()}")
 
-    if trial.detailed_description:
-        parts.append(trial.detailed_description.strip())
+    if extraction_input.summary:
+        parts.append(f"Summary: {extraction_input.summary.strip()}")
 
     return "\n\n".join(parts)
 
 
 def build_request(
-    trial: Trial, prompt: str = EXTRACTION_PROMPT, model: str = DEFAULT_MODEL
+    extraction_input: ExtractionInput, prompt: str = EXTRACTION_PROMPT, model: str = DEFAULT_MODEL
 ) -> dict[str, Any]:
     """
     Build an OpenAI Batch API request for disease extraction.
 
     Parameters
     ----------
-    trial_text : str
-        Trial text to analyze.
+    extraction_input : ExtractionInput
+        An object containing trial information for extraction.
+    prompt : str, optional
+        Prompt for the disease extraction task.
     model : str, optional
         OpenAI model used for extraction.
 
@@ -84,14 +87,14 @@ def build_request(
         JSON payload compatible with the OpenAI Batch API.
     """
     return {
-        "custom_id": trial.nct_id,
+        "custom_id": extraction_input.nct_id,
         "method": "POST",
         "url": "/v1/responses",
         "body": {
             "model": model,
             "input": [
                 {"role": "system", "content": prompt},
-                {"role": "user", "content": _format_trial(trial)},
+                {"role": "user", "content": _format_trial(extraction_input)},
             ],
             "text": {
                 "format": {
