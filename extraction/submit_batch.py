@@ -19,6 +19,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+
 def submit():
 
     conn = get_db_connection()
@@ -27,6 +28,7 @@ def submit():
     try:
 
         create_extraction_tables(cur)
+        conn.commit()
 
         batch_dir = Path("batch_files/extraction")
         batch_dir.mkdir(parents=True, exist_ok=True)
