@@ -19,7 +19,7 @@ def iter_trials(cur) -> Iterator[ExtractionInput]:
     ------
     ExtractionInput
         An object containing trial information for extraction.
-        
+
     """
 
     cur.execute(
@@ -67,7 +67,9 @@ def _format_trial(extraction_input: ExtractionInput) -> str:
 
 
 def build_request(
-    extraction_input: ExtractionInput, prompt: str = EXTRACTION_PROMPT, model: str = DEFAULT_MODEL
+    extraction_input: ExtractionInput,
+    prompt: str = EXTRACTION_PROMPT,
+    model: str = DEFAULT_MODEL,
 ) -> dict[str, Any]:
     """
     Build an OpenAI Batch API request for disease extraction.
