@@ -1,21 +1,22 @@
 from pathlib import Path
 import logging
+import shutil
 
 logger = logging.getLogger(__name__)
 
 
 def combine_jsonl(
-    input_files: list[str | Path],
-    output_file: str | Path,
+    input_paths: list[str | Path],
+    output_path: str | Path,
 ) -> Path:
     """
     Combine multiple JSONL files into a single JSONL file.
 
     Parameters
     ----------
-    input_files
+    input_paths
         JSONL files to combine, in order.
-    output_file
+    output_path
         Destination JSONL file.
 
     Returns
@@ -24,17 +25,14 @@ def combine_jsonl(
         Path to the combined JSONL file.
     """
 
-    output_file = Path(output_file)
+    output_path = Path(output_path)
+    output_path.parent.mkdir(parents=True, exist_ok=True)
 
-    output_file.parent.mkdir(parents=True, exist_ok=True)
+    with output_path.open("wb") as outfile:
+        for path in input_paths:
+            with Path(path).open("rb") as infile:
+                shutil.copyfileobj(infile, outfile)
 
-    with output_file.open("w", encoding="utf-8") as outfile:
+    logger.info("Combined %d files into %s", len(input_paths), output_path.name)
 
-        for file in input_files:
-
-            with Path(file).open("r", encoding="utf-8") as infile:
-                outfile.write(infile.read())
-
-    logger.info("Combined %d files into %s", len(input_files), output_file.name)
-
-    return output_file
+    return output_path
