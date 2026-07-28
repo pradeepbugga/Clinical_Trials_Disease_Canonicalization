@@ -3,14 +3,14 @@ from collections.abc import Iterable
 from extraction.parser import parse_condition_results
 
 
-def get_or_create_condition(cur, name: str) -> int:
+def get_or_create_extracted_condition(cur, name: str) -> int:
     """
     Insert a condition if it does not already exist and return its ID.
     """
 
     cur.execute(
         """
-        INSERT INTO Conditions (name)
+        INSERT INTO ExtractedConditions (name)
         VALUES (%s)
         ON CONFLICT (name) DO NOTHING
         """,
@@ -19,8 +19,8 @@ def get_or_create_condition(cur, name: str) -> int:
 
     cur.execute(
         """
-        SELECT condition_id
-        FROM Conditions
+        SELECT extracted_condition_id
+        FROM ExtractedConditions
         WHERE name = %s
         """,
         (name,),
@@ -34,7 +34,7 @@ def populate_records(
     records: Iterable[dict],
 ) -> dict:
     """
-    Populate Conditions and TrialConditions from parsed records.
+    Populate the database with condition extraction results.
     """
 
     trials_processed = 0
@@ -56,20 +56,20 @@ def populate_records(
             if not condition or condition in seen:
                 continue
 
-            condition_id = get_or_create_condition(cur, condition)
+            extracted_condition_id = get_or_create_extracted_condition(cur, condition)
 
             cur.execute(
                 """
-                INSERT INTO TrialConditions (
+                INSERT INTO TrialExtractedConditions (
                     nct_id,
-                    condition_id
+                    extracted_condition_id
                 )
                 VALUES (%s, %s)
                 ON CONFLICT DO NOTHING
                 """,
                 (
                     nct_id,
-                    condition_id,
+                    extracted_condition_id,
                 ),
             )
 
