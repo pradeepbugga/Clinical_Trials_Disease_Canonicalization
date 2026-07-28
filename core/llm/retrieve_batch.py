@@ -41,6 +41,16 @@ def retrieve_batches(batch_dir: str | Path) -> list[Path]:
 
     for entry in manifest:
 
+        raw_path = batch_dir / f"{Path(entry['filename']).stem}_raw.jsonl"
+
+        if raw_path.exists():
+            logger.info(
+                "Skipping %s (already downloaded)",
+                raw_path.name,
+            )
+            raw_files.append(raw_path)
+            continue
+
         batch = client.batches.retrieve(entry["batch_id"])
 
         logger.info(
