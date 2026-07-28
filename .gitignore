@@ -1,0 +1,13 @@
+# ignore following 
+
+# pycache files
+__pycache__/
+
+# data files
+data/
+
+# jsonl files
+*.jsonl
+
+# json files
+*.json
