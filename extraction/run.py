@@ -12,7 +12,7 @@ from core.llm.retrieve_batch import retrieve_batches
 
 from extraction.extract import iter_trials, build_request
 from extraction.parser import parse_condition_results
-from extraction.populate import populate_database
+from extraction.populate import populate_records
 
 
 def run():
@@ -48,7 +48,7 @@ def run():
 
         parsed_results = parse_results(combined_raw)
 
-        populate_database(
+        populate_records(
             cur,
             parsed_results,
         )
