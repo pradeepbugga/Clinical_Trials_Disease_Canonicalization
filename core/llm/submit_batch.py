@@ -8,7 +8,7 @@ from openai import OpenAI
 logger = logging.getLogger(__name__)
 
 
-def submit_batches(jsonl_files: list[Path])->Path:
+def submit_batches(jsonl_files: list[Path]) -> Path:
     """
     Upload JSONL files and create OpenAI Batch jobs.
 
