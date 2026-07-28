@@ -1,8 +1,10 @@
 from pathlib import Path
 
-from core.db import get_db_connection
+from core.db.connection import get_db_connection
+from core.schema import create_extraction_tables
 
-from core.llm.batch import (
+
+from core.llm.batch_utils import (
     generate_batch_jsonl,
     split_jsonl,
 )
@@ -13,6 +15,9 @@ from extraction.extract import (
     build_request,
 )
 
+import logging
+
+logger = logging.getLogger(__name__)
 
 def submit():
 
@@ -21,10 +26,15 @@ def submit():
 
     try:
 
+        create_extraction_tables(cur)
+
         batch_dir = Path("batch_files/extraction")
         batch_dir.mkdir(parents=True, exist_ok=True)
 
         input_jsonl = batch_dir / "batch_input.jsonl"
+
+        count = sum(1 for _ in iter_trials(cur))
+        logger.info("Total trials to process: %d", count)
 
         generate_batch_jsonl(
             records=iter_trials(cur),
@@ -32,12 +42,12 @@ def submit():
             build_request=build_request,
         )
 
-        split_jsonl(
+        batch_files = split_jsonl(
             input_jsonl,
             batch_dir,
         )
 
-        submit_batches(batch_dir)
+        submit_batches(batch_files)
 
     finally:
 
