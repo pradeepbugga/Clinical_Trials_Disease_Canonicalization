@@ -31,7 +31,7 @@ def iter_trials(cur) -> Iterator[ExtractionInput]:
         FROM ClinicalTrials
         WHERE nct_id NOT IN (
             SELECT DISTINCT nct_id
-            FROM TrialConditions
+            FROM TrialExtractedConditions
         )
         """
     )
