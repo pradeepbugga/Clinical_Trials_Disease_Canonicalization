@@ -9,7 +9,7 @@ def get_db_connection():
         psycopg2.extensions.connection: A connection object to the PostgreSQL database.
     """
 
-    from db.config import POSTGRES_CONFIG
+    from core.db.config import POSTGRES_CONFIG
 
     conn = psycopg2.connect(**POSTGRES_CONFIG)
     cur = conn.cursor()
