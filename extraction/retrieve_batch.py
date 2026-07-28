@@ -6,7 +6,7 @@ from core.llm.batch import combine_jsonl
 from core.llm.retrieve_batch import retrieve_batches
 
 from extraction.parser import parse_results
-from extraction.populate import populate_database
+from extraction.populate import populate_records
 
 
 def retrieve():
@@ -26,8 +26,8 @@ def retrieve():
 
         parsed_results = parse_results(combined_raw)
 
-        populate_database(
-            conn,
+        populate_records(
+            cur,
             parsed_results,
         )
 
