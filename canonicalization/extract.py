@@ -7,6 +7,7 @@ from models.models import CanonicalizationInput
 
 DEFAULT_MODEL = "gpt-4.1-nano"
 
+
 def iter_conditions(cur) -> Iterator[CanonicalizationInput]:
     """
     Iterate over extracted conditions that have not yet been
