@@ -23,7 +23,7 @@ class Trial:
 
 
 @dataclass
-class ExtractionRecord:
+class ExtractionInput
     nct_id: str
     title: str
-    summary: str
+    summary: str 
