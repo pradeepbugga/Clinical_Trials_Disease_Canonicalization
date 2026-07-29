@@ -1,10 +1,14 @@
-from models.models import EvaluationExample
 from pathlib import Path
 import json
-import logging
-
-from finetuning.prompts import SYSTEM_PROMPT
 from openai import OpenAI
+import logging
+import argparse
+
+from tqdm import tqdm
+
+from models.models import EvaluationExample
+from finetuning.prompts import SYSTEM_PROMPT
+
 
 logger = logging.getLogger(__name__)
 
@@ -41,7 +45,7 @@ def load_examples(path: str | Path) -> list[EvaluationExample]:
             assistant = json.loads(messages[2]["content"])
 
             example = EvaluationExample(
-                input=user,
+                input_name=user,
                 expected_common_name=assistant["common_name"],
                 expected_technical_name=assistant["technical_name"],
                 expected_abbreviations=assistant["abbreviations"],
@@ -76,10 +80,18 @@ def predict_condition(
 
     try:
         return json.loads(response.output_text)
-    except json.JSONDecodeError as e:
-        logging.exception("Failed to parse model output for condition: %s", condition)
-        logging.debug("Raw model output: %r", response.output_text)
-        raise e
+    except json.JSONDecodeError:
+        logger.exception(
+            "Failed to parse model output for condition: %s",
+            condition,
+        )
+
+        logger.error(
+            "Raw model output:\n%s",
+            response.output_text,
+        )
+
+        raise
 
 
 def compare_example(example, prediction):
@@ -152,31 +164,23 @@ def write_predictions(
         writer.writerows(rows)
 
 
-def evaluate_model(
-    client,
-    model: str,
-    examples: list[EvaluationExample],
-    output_path
-):
-
-    examples = load_examples("data/test.jsonl")
+def evaluate_model(client, model: str, examples: list[EvaluationExample], output_path):
 
     rows = []
     results = []
 
-
-    for example in examples:
+    for example in tqdm(examples, desc=f"Evaluating {model}"):
 
         prediction = predict_condition(
             client=client,
             model=model,
-            condition=example.input,
+            condition=example.input_name,
         )
 
         comparison = compare_example(example, prediction)
 
         row = {
-            "input": example.input,
+            "input": example.input_name,
             "expected_common_name": example.expected_common_name,
             "predicted_common_name": prediction.get("common_name"),
             "expected_technical_name": example.expected_technical_name,
@@ -211,26 +215,65 @@ def evaluate_model(
     )
 
 
+def parse_args():
+
+    parser = argparse.ArgumentParser(
+        description="Evaluate condition canonicalization models."
+    )
+
+    parser.add_argument(
+        "--test-file",
+        type=Path,
+        default=Path("./finetuning/data/test.jsonl"),
+        help="Path to the test dataset.",
+    )
+
+    parser.add_argument(
+        "--base-model",
+        default="gpt-4.1-nano",
+        help="Base model to evaluate.",
+    )
+
+    parser.add_argument(
+        "--finetuned-model",
+        default="ft:gpt-4.1-nano-2025-04-14:personal:canonicalize:BzdChpxY",
+        help="Fine-tuned model ID.",
+    )
+
+    parser.add_argument(
+        "--output-dir",
+        type=Path,
+        default=Path("data"),
+        help="Directory for prediction CSVs.",
+    )
+
+    return parser.parse_args()
+
+
 def main():
+
+    args = parse_args()
 
     client = OpenAI()
 
-    examples = load_examples("data/test.jsonl")
+    examples = load_examples(args.test_file)
 
     base_model_metrics = evaluate_model(
         client=client,
-        model="gpt-4.1-nano",
+        model=args.base_model,
         examples=examples,
-        output_path="data/base_model_predictions.csv",
-
+        output_path=args.output_dir / "base_model_predictions.csv",
     )
 
     finetuned_model_metrics = evaluate_model(
         client=client,
-        model="ft:gpt-4o-mini:pb929:canonicalization-2024-06-05-20-30-00",
+        model=args.finetuned_model,
         examples=examples,
-        output_path="data/finetuned_model_predictions.csv",
+        output_path=args.output_dir / "finetuned_model_predictions.csv",
     )
+
+    print(base_model_metrics)
+    print(finetuned_model_metrics)
 
 
 if __name__ == "__main__":
