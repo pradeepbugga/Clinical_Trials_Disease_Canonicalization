@@ -20,6 +20,7 @@ def create_tables(cur) -> None:
                 status TEXT,
                 phase TEXT,
                 summary TEXT,
+                detailed_description TEXT,
                 start_date DATE,
                 end_date DATE,
                 location TEXT,
