@@ -5,8 +5,7 @@ from core.db.connection import get_db_connection
 from core.llm.batch_utils import combine_jsonl
 from core.llm.retrieve_batch import retrieve_batches
 
-from extraction.parser import parse_condition_results
-from extraction.populate import populate_records
+from extraction.populate import populate_jsonl
 
 import logging
 
@@ -29,11 +28,9 @@ def retrieve():
             output_path=batch_dir / "raw_results.jsonl",
         )
 
-        parsed_results = parse_condition_results(combined_raw)
-
-        populate_records(
+        populate_jsonl(
             cur,
-            parsed_results,
+            combined_raw,
         )
 
         conn.commit()
