@@ -84,11 +84,3 @@ def parse_canonicalization_results(batch_results_path: str | Path) -> list[dict]
     return parsed_records
 
 
-def write_jsonl(path: str | Path, records: list[dict]):
-    """
-    Write a list of dictionaries to a JSONL file.
-    """
-
-    with open(path, "w") as f:
-        for record in records:
-            f.write(json.dumps(record) + "\n")
