@@ -71,14 +71,14 @@ def populate_records(cur, records: Iterable[CanonicalizationOutput]) -> dict:
 
         canonical_condition_id = get_or_create_canonical_condition(
             cur,
-            record["common_name"],
-            record["technical_name"],
+            record.common_name,
+            record.technical_name,
         )
 
         populate_abbreviations(
             cur,
             canonical_condition_id,
-            record["abbreviations"],
+            record.abbreviations,
         )
 
         cur.execute(
