@@ -14,7 +14,21 @@ The project includes:
 - Automated tests and GitHub Actions
 
 ## Table of Contents
-
+- [Motivation](overview)
+- [Pipeline](#pipeline)
+- [Repository Structure](repository-structure)
+- [Core Data Models](#core-data-models)
+- [Disease Extraction](disease-extraction)
+- [Disease Canonicalization](disease-canonicalization)
+- [Fine-Tuning](fine-tuning)
+- [Evaluation](evaluation)
+- [Installation](installation)
+- [Configuration](configuration)
+- [Running Tests](running-tests)
+- [CI](ci)
+- [Limitations](limitations)
+- [Future Work](future-work)
+- [License](license)
 
 
 ## Motivation
