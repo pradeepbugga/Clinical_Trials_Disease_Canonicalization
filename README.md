@@ -16,19 +16,19 @@ The project includes:
 ## Table of Contents
 - [Motivation](#motivation)
 - [Pipeline](#pipeline)
-- [Repository Structure](repository-structure)
+- [Repository Structure](#repository-structure)
 - [Core Data Models](#core-data-models)
-- [Disease Extraction](disease-extraction)
-- [Disease Canonicalization](disease-canonicalization)
-- [Fine-Tuning](fine-tuning)
-- [Evaluation](evaluation)
-- [Installation](installation)
-- [Configuration](configuration)
-- [Running Tests](running-tests)
-- [CI](ci)
-- [Limitations](limitations)
-- [Future Work](future-work)
-- [License](license)
+- [Disease Extraction](#disease-extraction)
+- [Disease Canonicalization](#disease-canonicalization)
+- [Fine-Tuning](#fine-tuning)
+- [Evaluation](#evaluation)
+- [Installation](#installation)
+- [Configuration](#configuration)
+- [Running Tests](#running-tests)
+- [CI](#ci)
+- [Limitations](#limitations)
+- [Future Work](#future-work)
+- [License](#license)
 
 
 ## Motivation
@@ -252,6 +252,59 @@ Current work focuses on expanding the training corpus and improving generalizati
 ## Installation
 Clone the repository:
 ```
-git clone <repository-url>
+git clone https://github.com/pradeepbugga/Clinical_Trials_Disease_Canonicalization.git
 cd Clinical_Trials_Disease_Canonicalization
+```
+Create a virtual environment:
+```
+python -m venv .venv
+```
+Activate it:
+```
+source .venv/bin/activate
+```
+Install dependencies:
+```
+python -m pip install --upgrade pip
+pip install -r requirements.txt
+```
+## Configuration
+Create a .env file:
+```
+OPENAI_API_KEY=...
+DATABASE_URL=...
+```
+## Running Tests
+
+Run the full test suite from the repository root:
+```
+pytest -q
+```
+## CI
+GitHub Actions runs the test suite automatically on pushes and pull requests.
+
+- name: Run tests
+  env:
+    PYTHONPATH: ${{ github.workspace }}
+  run: pytest -q
+
+## Limitations
+- Disease-name evaluation currently uses exact normalized matching rather than ontology-aware semantic equivalence.
+- The system does not yet resolve every disease to a formal ontology identifier.
+- Abbreviation interpretation can be context-dependent.
+- Performance may be lower for rare diseases, ambiguous acronyms, and highly specific disease subtypes.
+- Model-based processing requires access to the OpenAI API unless previously generated batch outputs are used.
+
+## Future Work
+
+Immediate improvements include:
+
+- mapping diseases to MeSH and ICD-10 identifiers
+- larger and more diverse fine-tuning datasets
+- confidence scoring
+
+Long-term work includes integration of the normalized disease information into a convenient search interface for clinical trials located at ClinicalTrials.gov
+
+## License
+This repository is licensed under the MIT License. Certain proprietary assets—including manually curated training datasets are intentionally excluded from the public release.
 
