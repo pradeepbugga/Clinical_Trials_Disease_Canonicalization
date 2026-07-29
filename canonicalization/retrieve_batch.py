@@ -14,6 +14,13 @@ logger = logging.getLogger(__name__)
 
 def retrieve():
 
+    """
+    Retrieve completed OpenAI Batch outputs for canonicalization and populate the database.
+    This function connects to the database, retrieves the raw JSONL output files from the specified
+    batch directory, combines them into a single JSONL file, and populates the database with the
+    canonicalized condition information.
+    """
+
     conn = get_db_connection()
     cur = conn.cursor()
 
