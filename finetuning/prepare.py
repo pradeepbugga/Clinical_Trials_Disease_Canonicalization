@@ -32,7 +32,7 @@ def iter_training_examples(input_path: str | Path):
             input_name=record["input_name"],
             common_name=record["common_name"],
             technical_name=technical_name,
-            abbreviations=record["abbreviations"],
+            abbreviations=record.get("abbreviations") or [],
         )
 
 
