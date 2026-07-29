@@ -14,7 +14,7 @@ The project includes:
 - Automated tests and GitHub Actions
 
 ## Table of Contents
-- [Motivation](overview)
+- [Motivation](#motivation)
 - [Pipeline](#pipeline)
 - [Repository Structure](repository-structure)
 - [Core Data Models](#core-data-models)
