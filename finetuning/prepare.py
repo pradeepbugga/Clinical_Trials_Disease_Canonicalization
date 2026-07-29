@@ -1,67 +1,38 @@
 from pathlib import Path
 import json
+import random
+import logging
 
-from core.db.connection import get_db_connection
-
-from fine_tuning.prompts import SYSTEM_PROMPT
+from finetuning.prompts import SYSTEM_PROMPT
 from models.models import FineTuningExample
 
+logger = logging.getLogger(__name__)
 
-def iter_training_examples(cur):
+
+def iter_training_examples(input_path: str | Path):
     """
-    Yield training examples for fine-tuning from the canonical condition database.
+    Yield training examples for fine-tuning from the exported canonical mappings.
     """
 
-    cur.execute(
-        """
-        SELECT
-            ec.name,
-            cc.common_name,
-            cc.technical_name,
-            cc.canonical_condition_id
-        FROM ExtractedConditions ec
-        JOIN ExtractedCanonicalConditions ecc
-            ON ec.extracted_condition_id = ecc.extracted_condition_id
-        JOIN CanonicalConditions cc
-            ON ecc.canonical_condition_id = cc.canonical_condition_id
-        ORDER BY ec.extracted_condition_id
-        """
-    )
+    input_path = Path(input_path)
 
-    for (
-        input_name,
-        common_name,
-        technical_name,
-        canonical_condition_id,
-    ) in cur.fetchall():
+    with input_path.open("r", encoding="utf-8") as f:
+        records = json.load(f)
 
-        cur.execute(
-            """
-            SELECT abbreviation
-            FROM CanonicalAbbreviations
-            WHERE canonical_condition_id = %s
-            ORDER BY abbreviation
-            """,
-            (canonical_condition_id,),
-        )
-
-        abbreviations = [
-            row[0]
-            for row in cur.fetchall()
-        ]
+    for record in records:
+        technical_name = record["technical_name"]
 
         if (
             technical_name
-            and common_name.lower().strip()
-            == technical_name.lower().strip()
+            and technical_name.strip().lower() == record["common_name"].strip().lower()
         ):
-            technical_name = ""
+            technical_name = None
 
         yield FineTuningExample(
-            input_name=input_name,
-            common_name=common_name,
+            input_name=record["input_name"],
+            common_name=record["common_name"],
             technical_name=technical_name,
-            abbreviations=abbreviations,
+            abbreviations=record["abbreviations"],
         )
 
 
@@ -128,34 +99,69 @@ def write_jsonl(
 
 
 def prepare(
-    output_path: str | Path,
+    input_path: str | Path,
+    train_output_path: str | Path,
+    test_output_path: str | Path,
+    test_fraction: float = 0.1,
+    seed: int = 42,
 ):
     """
-    Export the canonical condition database as an OpenAI fine-tuning dataset.
+    Prepare training and test datasets for fine-tuning.
+
+    Parameters
+    ----------
+    input_path
+        Path to the exported canonical mappings JSON file.
+    train_output_path
+        Path to the output training JSONL file.
+    test_output_path
+        Path to the output test JSONL file.
+    test_fraction
+        Fraction of examples to use for the test set (between 0 and 1).
+    seed
+        Random seed for shuffling the examples.
     """
 
-    conn = get_db_connection()
-    cur = conn.cursor()
+    if not (0 <= test_fraction <= 1):
+        raise ValueError("test_fraction must be between 0 and 1.")
 
-    try:
+    examples = list(iter_training_examples(input_path))
 
-        records = iter_training_examples(cur)
+    random.Random(seed).shuffle(examples)
 
-        write_jsonl(
-            records,
-            output_path,
-        )
+    split_index = int(len(examples) * (1 - test_fraction))
 
-    finally:
+    train_examples = examples[:split_index]
+    test_examples = examples[split_index:]
 
-        cur.close()
-        conn.close()
+    write_jsonl(train_examples, train_output_path)
+    write_jsonl(test_examples, test_output_path)
+
+    logger.info(
+        "Prepared %d examples, with %d for training and %d for testing.",
+        len(examples),
+        len(train_examples),
+        len(test_examples),
+    )
 
 
 if __name__ == "__main__":
 
-    output_path = (
-        Path(__file__).parent / "data" / "train.jsonl"
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
     )
 
-    prepare(output_path)
+    input_path = Path(__file__).parent / "data" / "canonical_mappings.json"
+
+    train_path = Path(__file__).parent / "data" / "train.jsonl"
+    test_path = Path(__file__).parent / "data" / "test.jsonl"
+
+    train_path.parent.mkdir(parents=True, exist_ok=True)
+    test_path.parent.mkdir(parents=True, exist_ok=True)
+
+    prepare(
+        input_path=input_path,
+        train_output_path=train_path,
+        test_output_path=test_path,
+    )
