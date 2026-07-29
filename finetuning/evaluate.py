@@ -8,6 +8,7 @@ from tqdm import tqdm
 
 from models.models import EvaluationExample
 from finetuning.prompts import SYSTEM_PROMPT
+from canonicalization.schema import CANONICALIZATION_SCHEMA
 
 
 logger = logging.getLogger(__name__)
@@ -61,7 +62,7 @@ def predict_condition(
     condition: str,
 ) -> dict:
     """
-    Predict the canonical representation of a condition using a fine-tuned model.
+    Predict the canonical representation of a condition.
     """
 
     response = client.responses.create(
@@ -76,36 +77,132 @@ def predict_condition(
                 "content": condition,
             },
         ],
+        text={
+            "format": {
+                "type": "json_schema",
+                "name": "canonicalization",
+                "strict": True,
+                "schema": CANONICALIZATION_SCHEMA,
+            }
+        },
     )
 
     try:
-        return json.loads(response.output_text)
+        prediction = json.loads(response.output_text)
     except json.JSONDecodeError:
         logger.exception(
             "Failed to parse model output for condition: %s",
             condition,
         )
-
         logger.error(
             "Raw model output:\n%s",
             response.output_text,
         )
-
         raise
 
+    required_fields = {
+        "common_name",
+        "technical_name",
+        "abbreviations",
+    }
 
-def compare_example(example, prediction):
+    missing = required_fields - prediction.keys()
 
-    pred_common = prediction.get("common_name")
+    if missing:
+        raise ValueError(
+            f"Model output is missing fields {sorted(missing)} "
+            f"for condition {condition!r}: {prediction}"
+        )
 
-    pred_technical = prediction.get("technical_name") or None
-    truth_technical = example.expected_technical_name or None
+    if not isinstance(prediction["common_name"], str):
+        raise TypeError(
+            f"common_name must be a string: {prediction}"
+        )
 
-    pred_abbrev = set(prediction.get("abbreviations", []))
-    truth_abbrev = set(example.expected_abbreviations)
+    if not isinstance(prediction["technical_name"], str):
+        raise TypeError(
+            f"technical_name must be a string: {prediction}"
+        )
+
+    if not isinstance(prediction["abbreviations"], list):
+        raise TypeError(
+            f"abbreviations must be a list: {prediction}"
+        )
+
+    if not all(
+        isinstance(value, str)
+        for value in prediction["abbreviations"]
+    ):
+        raise TypeError(
+            f"Every abbreviation must be a string: {prediction}"
+        )
+
+    return prediction
+
+def normalize_text(value) -> str:
+    """
+    Normalize a scalar text value for exact-match evaluation.
+
+    Missing values are represented as an empty string, consistent with the
+    fine-tuning data contract.
+    """
+    if value is None:
+        return ""
+
+    return str(value).strip()
+
+
+def normalize_name(value) -> str:
+    """
+    Normalize a medical name for case-insensitive exact matching.
+    """
+    return normalize_text(value).casefold()
+
+
+def normalize_abbreviations(values) -> set[str]:
+    """
+    Normalize abbreviation lists for order- and case-insensitive comparison.
+    """
+    if not values:
+        return set()
 
     return {
-        "common_correct": pred_common == example.expected_common_name,
+        normalize_name(value)
+        for value in values
+        if normalize_text(value)
+    }
+
+def compare_example(
+    example: EvaluationExample,
+    prediction: dict,
+) -> dict:
+
+    pred_common = normalize_name(
+        prediction.get("common_name")
+    )
+
+    truth_common = normalize_name(
+        example.expected_common_name
+    )
+
+    pred_technical = normalize_name(
+        prediction.get("technical_name")
+    )
+
+    truth_technical = normalize_name(
+        example.expected_technical_name
+    )
+
+    pred_abbrev = normalize_abbreviations(
+        prediction.get("abbreviations", [])
+    )
+
+    truth_abbrev = normalize_abbreviations(
+        example.expected_abbreviations
+    )
+
+    return {
+        "common_correct": pred_common == truth_common,
         "technical_correct": pred_technical == truth_technical,
         "abbreviation_tp": len(pred_abbrev & truth_abbrev),
         "abbreviation_fp": len(pred_abbrev - truth_abbrev),
@@ -114,6 +211,15 @@ def compare_example(example, prediction):
 
 
 def compute_metrics(results):
+
+    if not results:
+        return {
+            "common_accuracy": 0.0,
+            "technical_accuracy": 0.0,
+            "abbreviation_precision": 1.0,
+            "abbreviation_recall": 1.0,
+            "abbreviation_f1": 1.0,
+        }
 
     n = len(results)
 
@@ -181,12 +287,36 @@ def evaluate_model(client, model: str, examples: list[EvaluationExample], output
 
         row = {
             "input": example.input_name,
+
             "expected_common_name": example.expected_common_name,
             "predicted_common_name": prediction.get("common_name"),
-            "expected_technical_name": example.expected_technical_name,
-            "predicted_technical_name": prediction.get("technical_name"),
-            "expected_abbreviations": ", ".join(example.expected_abbreviations),
-            "predicted_abbreviations": ", ".join(prediction.get("abbreviations", [])),
+            "normalized_expected_common_name": normalize_name(
+                example.expected_common_name
+            ),
+            "normalized_predicted_common_name": normalize_name(
+                prediction.get("common_name")
+            ),
+
+            "expected_technical_name": normalize_text(
+                example.expected_technical_name
+            ),
+            "predicted_technical_name": normalize_text(
+                prediction.get("technical_name")
+            ),
+            "normalized_expected_technical_name": normalize_name(
+                example.expected_technical_name
+            ),
+            "normalized_predicted_technical_name": normalize_name(
+                prediction.get("technical_name")
+            ),
+
+            "expected_abbreviations": ", ".join(
+                example.expected_abbreviations or []
+            ),
+            "predicted_abbreviations": ", ".join(
+                prediction.get("abbreviations", [])
+            ),
+
             **comparison,
         }
 
@@ -194,25 +324,9 @@ def evaluate_model(client, model: str, examples: list[EvaluationExample], output
         results.append(comparison)
 
     metrics = compute_metrics(results)
-    write_predictions(rows, "data/evaluation_results.csv")
+    write_predictions(rows, output_path)
 
     return metrics
-
-    logger.info("Examples: %d", len(examples))
-    logger.info("Common accuracy: %.2f%%", metrics["common_accuracy"] * 100)
-    logger.info("Technical accuracy: %.2f%%", metrics["technical_accuracy"] * 100)
-    logger.info(
-        "Abbreviation precision: %.2f%%",
-        metrics["abbreviation_precision"] * 100,
-    )
-    logger.info(
-        "Abbreviation recall: %.2f%%",
-        metrics["abbreviation_recall"] * 100,
-    )
-    logger.info(
-        "Abbreviation F1: %.2f%%",
-        metrics["abbreviation_f1"] * 100,
-    )
 
 
 def parse_args():
@@ -230,13 +344,13 @@ def parse_args():
 
     parser.add_argument(
         "--base-model",
-        default="gpt-4.1-nano",
+        default="ft:gpt-4.1-nano-2025-04-14:personal:canonicalize:BzdChpxY",
         help="Base model to evaluate.",
     )
 
     parser.add_argument(
         "--finetuned-model",
-        default="ft:gpt-4.1-nano-2025-04-14:personal:canonicalize:BzdChpxY",
+        default="ft:gpt-4.1-nano-2025-04-14:personal:canonicalize:E6moEi9A",
         help="Fine-tuned model ID.",
     )
 
