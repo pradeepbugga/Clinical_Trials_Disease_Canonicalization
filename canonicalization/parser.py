@@ -8,7 +8,7 @@ import logging
 logger = logging.getLogger(__name__)
 
 
-def parse_canonicalization_results(batch_results_path: str | Path) -> list[dict]:
+def parse_canonicalization_results(batch_results_path: str | Path) -> list[CanonicalizationOutput]:
     """
     Parse successful OpenAI Batch API condition canonicalization results from a JSONL file.
 
