@@ -1,181 +1,104 @@
+from models.models import Trial
 
-import pytest
+def insert_trial(cur, trial: Trial):
+    """
+    Insert a Trial object into the database.
 
-from ingest.persistence import (
-    insert_conditions,
-    insert_interventions,
-    insert_trial,
-)
+    Parameters:
+    cur : The database cursor.
+    trial (Trial): The Trial object to be inserted.
+    """
 
-
-def normalize_sql(sql: str) -> str:
-    return " ".join(sql.split())
-
-
-def test_insert_trial_executes_expected_query(vitiligo_trial):
-    cursor = Mock()
-
-    insert_trial(cursor, vitiligo_trial)
-
-    cursor.execute.assert_called_once()
-
-    sql, params = cursor.execute.call_args.args
-
-    normalized_sql = normalize_sql(sql)
-
-    assert "INSERT INTO ClinicalTrials" in normalized_sql
-    assert "ON CONFLICT DO NOTHING" in normalized_sql
-
-    assert params == (
-        "NCT00380471",
-        "Treatment and Complication of Bath PUVA in Vitiligo",
-        "UNKNOWN",
-        "PHASE2",
+    cur.execute(
+        """
+        INSERT INTO ClinicalTrials (nct_id, title, status, phase, summary, start_date, end_date, location, sponsor, url)
+        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        ON CONFLICT DO NOTHING
+        """,
         (
-            "The purpose of this study is to determine whether bath "
-            "PUVA are effective in treatment of vitiligo and what is "
-            "the complication of bath PUVA in vitiligo."
+            trial.nct_id,
+            trial.title,
+            trial.status,
+            trial.phase,
+            trial.summary,
+            trial.start_date.isoformat() if trial.start_date else None,
+            trial.end_date.isoformat() if trial.end_date else None,
+            None,  # Placeholder for location, as it's not provided in the Trial object
+            trial.sponsor,
+            trial.url,
         ),
-        "2006-01-01T00:00:00",
-        "2006-08-01T00:00:00",
-        None,
-        "Shahid Beheshti University of Medical Sciences",
-        "https://clinicaltrials.gov/study/NCT00380471",
     )
 
 
-def test_insert_conditions_inserts_and_links_single_condition(
-    vitiligo_trial,
-):
-    cursor = Mock()
-    cursor.fetchone.return_value = (101,)
+def insert_conditions(cur, trial: Trial):
 
-    insert_conditions(cursor, vitiligo_trial)
+    for condition in trial.conditions:
 
-    assert cursor.execute.call_count == 3
+        cur.execute(
+            """
+        INSERT INTO Conditions (name)
+        VALUES (%s)
+        ON CONFLICT DO NOTHING        
+        """,
+            (condition,),
+        )
 
-    insert_call = cursor.execute.call_args_list[0]
-    select_call = cursor.execute.call_args_list[1]
-    link_call = cursor.execute.call_args_list[2]
+        cur.execute(
+            """
+        SELECT condition_id
+        FROM Conditions
+        WHERE name = %s
+        """,
+            (condition,),
+        )
+        row = cur.fetchone()
+        if row is None:
+            raise RuntimeError(f"Condition '{condition}' not found in the database after insertion.")
+        condition_id = row[0]
 
-    assert "INSERT INTO Conditions" in normalize_sql(
-        insert_call.args[0]
-    )
-    assert insert_call.args[1] == ("Vitiligo",)
-
-    assert "SELECT condition_id" in normalize_sql(
-        select_call.args[0]
-    )
-    assert select_call.args[1] == ("Vitiligo",)
-
-    assert "INSERT INTO TrialConditions" in normalize_sql(
-        link_call.args[0]
-    )
-    assert link_call.args[1] == ("NCT00380471", 101)
-
-
-def test_insert_conditions_inserts_multiple_conditions(
-    mannitol_trial,
-):
-    cursor = Mock()
-    cursor.fetchone.side_effect = [
-        (201,),
-        (202,),
-    ]
-
-    insert_conditions(cursor, mannitol_trial)
-
-    assert cursor.execute.call_count == 6
-
-    calls = cursor.execute.call_args_list
-
-    assert calls[0].args[1] == ("Mannitol Adverse Reaction",)
-    assert calls[1].args[1] == ("Mannitol Adverse Reaction",)
-    assert calls[2].args[1] == ("NCT03161977", 201)
-
-    assert calls[3].args[1] == ("Hyperkalemia",)
-    assert calls[4].args[1] == ("Hyperkalemia",)
-    assert calls[5].args[1] == ("NCT03161977", 202)
+        cur.execute(
+            """
+        INSERT INTO TrialConditions
+        (nct_id, condition_id)
+        VALUES (%s, %s)
+        ON CONFLICT DO NOTHING
+        """,
+            (trial.nct_id, condition_id),
+        )
 
 
-def test_insert_conditions_raises_when_condition_not_found(
-    vitiligo_trial,
-):
-    cursor = Mock()
-    cursor.fetchone.return_value = None
+def insert_interventions(cur, trial: Trial):
 
-    with pytest.raises(
-        RuntimeError,
-        match="Condition 'Vitiligo' not found",
-    ):
-        insert_conditions(cursor, vitiligo_trial)
+    for intervention in trial.interventions:
 
+        cur.execute(
+            """
+            INSERT INTO Interventions (name, type)
+            VALUES (%s, %s)
+            ON CONFLICT DO NOTHING
+            """,
+            (intervention.name, intervention.type),
+        )
 
-def test_insert_intervention_inserts_and_links_intervention(
-    vitiligo_trial,
-):
-    cursor = Mock()
-    cursor.fetchone.return_value = (301,)
+        cur.execute(
+            """
+            SELECT intervention_id
+            FROM Interventions
+            WHERE name = %s
+            """,
+            (intervention.name,),
+        )
+        row = cur.fetchone()
+        if row is None:
+            raise RuntimeError(f"Intervention '{intervention.name}' not found in the database after insertion.")
+        intervention_id = row[0]
 
-    insert_interventions(cursor, vitiligo_trial)
-
-    assert cursor.execute.call_count == 3
-
-    insert_call = cursor.execute.call_args_list[0]
-    select_call = cursor.execute.call_args_list[1]
-    link_call = cursor.execute.call_args_list[2]
-
-    assert "INSERT INTO Interventions" in normalize_sql(
-        insert_call.args[0]
-    )
-    assert insert_call.args[1] == ("Bath PUVA", "DEVICE")
-
-    assert "SELECT intervention_id" in normalize_sql(
-        select_call.args[0]
-    )
-    assert select_call.args[1] == ("Bath PUVA",)
-
-    assert "INSERT INTO TrialInterventions" in normalize_sql(
-        link_call.args[0]
-    )
-    assert link_call.args[1] == ("NCT00380471", 301)
-
-
-def test_insert_intervention_from_observational_trial(
-    mannitol_trial,
-):
-    cursor = Mock()
-    cursor.fetchone.return_value = (401,)
-
-    insert_interventions(cursor, mannitol_trial)
-
-    assert cursor.execute.call_count == 3
-
-    calls = cursor.execute.call_args_list
-
-    assert calls[0].args[1] == ("Mannitol", "OTHER")
-    assert calls[1].args[1] == ("Mannitol",)
-    assert calls[2].args[1] == ("NCT03161977", 401)
-
-
-def test_insert_interventions_does_nothing_when_none_exist(
-    copd_trial,
-):
-    cursor = Mock()
-
-    insert_interventions(cursor, copd_trial)
-
-    cursor.execute.assert_not_called()
-
-
-def test_insert_interventions_raises_when_intervention_not_found(
-    vitiligo_trial,
-):
-    cursor = Mock()
-    cursor.fetchone.return_value = None
-
-    with pytest.raises(
-        RuntimeError,
-        match="Intervention 'Bath PUVA' not found",
-    ):
-        insert_interventions(cursor, vitiligo_trial)
+        cur.execute(
+            """
+            INSERT INTO TrialInterventions
+            (nct_id, intervention_id)
+            VALUES (%s, %s)
+            ON CONFLICT DO NOTHING
+            """,
+            (trial.nct_id, intervention_id),
+        )
