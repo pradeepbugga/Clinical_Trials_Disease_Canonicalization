@@ -22,6 +22,14 @@ logger = logging.getLogger(__name__)
 
 def submit():
 
+    """
+    Submit condition data for canonicalization using OpenAI Batch API.
+    This function connects to the database, retrieves condition records that require
+    canonicalization, generates JSONL files for batch processing, and submits them to the
+    OpenAI Batch API.
+    """
+    
+
     conn = get_db_connection()
     cur = conn.cursor()
 

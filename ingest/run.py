@@ -12,6 +12,10 @@ DATA_DIR = "data/ClinTrialFiles"
 
 def main():
 
+    """
+    Main function to ingest clinical trial data from JSON files into the database.
+    """
+
     conn = get_db_connection()
     cur = conn.cursor()
 

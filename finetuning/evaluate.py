@@ -115,29 +115,19 @@ def predict_condition(
         )
 
     if not isinstance(prediction["common_name"], str):
-        raise TypeError(
-            f"common_name must be a string: {prediction}"
-        )
+        raise TypeError(f"common_name must be a string: {prediction}")
 
     if not isinstance(prediction["technical_name"], str):
-        raise TypeError(
-            f"technical_name must be a string: {prediction}"
-        )
+        raise TypeError(f"technical_name must be a string: {prediction}")
 
     if not isinstance(prediction["abbreviations"], list):
-        raise TypeError(
-            f"abbreviations must be a list: {prediction}"
-        )
+        raise TypeError(f"abbreviations must be a list: {prediction}")
 
-    if not all(
-        isinstance(value, str)
-        for value in prediction["abbreviations"]
-    ):
-        raise TypeError(
-            f"Every abbreviation must be a string: {prediction}"
-        )
+    if not all(isinstance(value, str) for value in prediction["abbreviations"]):
+        raise TypeError(f"Every abbreviation must be a string: {prediction}")
 
     return prediction
+
 
 def normalize_text(value) -> str:
     """
@@ -166,40 +156,29 @@ def normalize_abbreviations(values) -> set[str]:
     if not values:
         return set()
 
-    return {
-        normalize_name(value)
-        for value in values
-        if normalize_text(value)
-    }
+    return {normalize_name(value) for value in values if normalize_text(value)}
+
 
 def compare_example(
     example: EvaluationExample,
     prediction: dict,
 ) -> dict:
+    """
+    Compare the model's prediction against the expected values for a single example.
+    Returns a dictionary containing the comparison results.
+    """
 
-    pred_common = normalize_name(
-        prediction.get("common_name")
-    )
+    pred_common = normalize_name(prediction.get("common_name"))
 
-    truth_common = normalize_name(
-        example.expected_common_name
-    )
+    truth_common = normalize_name(example.expected_common_name)
 
-    pred_technical = normalize_name(
-        prediction.get("technical_name")
-    )
+    pred_technical = normalize_name(prediction.get("technical_name"))
 
-    truth_technical = normalize_name(
-        example.expected_technical_name
-    )
+    truth_technical = normalize_name(example.expected_technical_name)
 
-    pred_abbrev = normalize_abbreviations(
-        prediction.get("abbreviations", [])
-    )
+    pred_abbrev = normalize_abbreviations(prediction.get("abbreviations", []))
 
-    truth_abbrev = normalize_abbreviations(
-        example.expected_abbreviations
-    )
+    truth_abbrev = normalize_abbreviations(example.expected_abbreviations)
 
     return {
         "common_correct": pred_common == truth_common,
@@ -211,6 +190,10 @@ def compare_example(
 
 
 def compute_metrics(results):
+    """
+    Compute evaluation metrics from the comparison results of multiple examples.
+    Returns a dictionary containing the computed metrics.
+    """
 
     if not results:
         return {
@@ -271,6 +254,25 @@ def write_predictions(
 
 
 def evaluate_model(client, model: str, examples: list[EvaluationExample], output_path):
+    """
+    Evaluate a model on a set of examples and write the predictions to a CSV file.
+
+    Parameters
+    ----------
+    client
+        OpenAI client instance.
+    model
+        Model ID to evaluate.
+    examples
+        List of EvaluationExample instances to evaluate.
+    output_path
+        Path to the output CSV file for predictions.
+
+    Returns
+    -------
+    dict
+        Computed evaluation metrics.
+    """
 
     rows = []
     results = []
@@ -287,7 +289,6 @@ def evaluate_model(client, model: str, examples: list[EvaluationExample], output
 
         row = {
             "input": example.input_name,
-
             "expected_common_name": example.expected_common_name,
             "predicted_common_name": prediction.get("common_name"),
             "normalized_expected_common_name": normalize_name(
@@ -296,10 +297,7 @@ def evaluate_model(client, model: str, examples: list[EvaluationExample], output
             "normalized_predicted_common_name": normalize_name(
                 prediction.get("common_name")
             ),
-
-            "expected_technical_name": normalize_text(
-                example.expected_technical_name
-            ),
+            "expected_technical_name": normalize_text(example.expected_technical_name),
             "predicted_technical_name": normalize_text(
                 prediction.get("technical_name")
             ),
@@ -309,14 +307,8 @@ def evaluate_model(client, model: str, examples: list[EvaluationExample], output
             "normalized_predicted_technical_name": normalize_name(
                 prediction.get("technical_name")
             ),
-
-            "expected_abbreviations": ", ".join(
-                example.expected_abbreviations or []
-            ),
-            "predicted_abbreviations": ", ".join(
-                prediction.get("abbreviations", [])
-            ),
-
+            "expected_abbreviations": ", ".join(example.expected_abbreviations or []),
+            "predicted_abbreviations": ", ".join(prediction.get("abbreviations", [])),
             **comparison,
         }
 

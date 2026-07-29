@@ -22,6 +22,13 @@ logger = logging.getLogger(__name__)
 
 def submit():
 
+    """
+    Submit clinical trial data for disease extraction using OpenAI Batch API.
+    This function connects to the database, retrieves clinical trial records that require
+    disease extraction, generates JSONL files for batch processing, and submits them to the
+    OpenAI Batch API.
+    """
+
     conn = get_db_connection()
     cur = conn.cursor()
 

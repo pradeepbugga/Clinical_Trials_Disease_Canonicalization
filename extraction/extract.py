@@ -8,7 +8,7 @@ DEFAULT_MODEL = "gpt-4.1-nano"
 
 def iter_trials(cur) -> Iterator[ExtractionInput]:
     """
-    Yield Trial objects requiring condition extraction.
+    Iterate over clinical trials that have not yet been processed for disease extraction.
 
     Parameters
     ----------

@@ -147,6 +147,12 @@ def prepare(
 
 if __name__ == "__main__":
 
+    """
+    Prepare training and test datasets for fine-tuning.
+    This script reads the exported canonical mappings from a JSON file, splits the data into
+    training and test sets, and writes them to JSONL files suitable for OpenAI fine-tuning.
+    """
+
     logging.basicConfig(
         level=logging.INFO,
         format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
