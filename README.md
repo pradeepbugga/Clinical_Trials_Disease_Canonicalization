@@ -283,10 +283,12 @@ pytest -q
 ## CI
 GitHub Actions runs the test suite automatically on pushes and pull requests.
 
+```
 - name: Run tests
   env:
     PYTHONPATH: ${{ github.workspace }}
   run: pytest -q
+```
 
 ## Limitations
 - Disease-name evaluation currently uses exact normalized matching rather than ontology-aware semantic equivalence.
