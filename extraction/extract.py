@@ -27,7 +27,8 @@ def iter_trials(cur) -> Iterator[ExtractionInput]:
         SELECT
             nct_id,
             title,
-            summary
+            summary,
+            detailed_description
         FROM ClinicalTrials
         WHERE nct_id NOT IN (
             SELECT DISTINCT nct_id
@@ -43,12 +44,13 @@ def iter_trials(cur) -> Iterator[ExtractionInput]:
         if not rows:
             break
 
-        for nct_id, title, summary in rows:
+        for nct_id, title, summary, detailed_description in rows:
 
             yield ExtractionInput(
                 nct_id=nct_id,
                 title=title,
                 summary=summary,
+                detailed_description=detailed_description,
             )
 
 
@@ -62,6 +64,11 @@ def _format_trial(extraction_input: ExtractionInput) -> str:
 
     if extraction_input.summary:
         parts.append(f"Summary: {extraction_input.summary.strip()}")
+
+    if extraction_input.detailed_description:
+        parts.append(
+            f"Detailed Description: {extraction_input.detailed_description.strip()}"
+        )
 
     return "\n\n".join(parts)
 
