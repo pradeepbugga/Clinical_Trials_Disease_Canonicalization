@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from models import Trial, Intervention
+from models.models import Trial, Intervention
 
 
 def parse_date(date_str: str) -> datetime:
@@ -49,6 +49,14 @@ def parse_trial(study: dict) -> Trial:
     design = study.get("designModule", {})
     interventions_module = study.get("armsInterventionsModule", {})
     conditions_module = study.get("conditionsModule", {})
+    detailed_raw = description.get("detailedDescription", "")
+
+    if isinstance(detailed_raw, dict):
+        detailed_description = detailed_raw.get("content", "").strip()
+    elif isinstance(detailed_raw, str):
+        detailed_description = detailed_raw.strip()
+    else:
+        detailed_description = ""
 
     phases = design.get("phases", [])
 
@@ -73,6 +81,7 @@ def parse_trial(study: dict) -> Trial:
         status=status.get("overallStatus", "").strip(),
         phase=phases[0].strip() if phases else "",
         summary=description.get("briefSummary", "").strip(),
+        detailed_description=detailed_description,
         start_date=parse_date(
             status.get("startDateStruct", {}).get("date")
             or status.get("studyFirstSubmitDate")
