@@ -76,5 +76,3 @@ def parse_condition_results(batch_results_path: str | Path) -> list[dict]:
         )
 
     return parsed_records
-
-
